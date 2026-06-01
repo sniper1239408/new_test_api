@@ -20,16 +20,36 @@ document.getElementById("login_form").addEventListener("submit", async function(
     localStorage.setItem("username", data2.username);
     localStorage.setItem("permissions", data2.permissions);
     localStorage.setItem("groups", data2.groups[0].name);
-    window.location = "/admin";
+    adminOrViewer();
   } else {
     alert(`Error ${response.status}: ${data2.error}`);
   };
 });
 
 if(localStorage.getItem("token") != null) {
-  window.location = "/admin";
+  adminOrViewer();
 } else {
   localStorage.removeItem("username");
   localStorage.removeItem("permissions");
   localStorage.removeItem("groups");
-}
+};
+
+async function adminOrViewer(){
+  const response = await fetch(`${urlbase}/api/canAccessAdmin/`, { //send data to server
+    method: "GET",
+    headers: {
+      "Authorization": `Token ${localStorage.getItem("token")}`
+    }
+  });
+  const data2 = await response.json();
+  if(response.ok) {
+    if(data2.has_access != true){
+        window.location = "/viewer";
+    } else {
+      window.location = "/admin";
+    };
+  } else {
+    console.log(data2);
+    alert(`Error ${response.status} while checking if user is admin.`);
+  };
+};
