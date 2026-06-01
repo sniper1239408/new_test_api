@@ -26,6 +26,9 @@
       <a href="#" class="nav-link text-white-50" data-target="page-groups">
         <i class="bi bi-people-fill"></i> View Groups
       </a>
+      <a href="/viewer" class="nav-link text-white-50" data-target="page-redir">
+        <i class="bi bi-arrow-up-right"></i> Go to Viewer Panel
+      </a>
     </li>
     <!-- ADD MORE LINKS HERE -->
   </ul>
@@ -33,7 +36,7 @@
   <div class="text-white-50 small mt-3">
     Logged in as <strong class="text-white" id="user_text">~~~</strong>
     <br>
-    <button class="btn btn-sm btn-danger" onclick="logOut()">Log Out</button>
+    <button class="btn btn-sm btn-danger" onclick="logOut()"><i class="bi bi-box-arrow-right"></i> Log Out</button>
   </div>
  
 </nav>
@@ -58,7 +61,7 @@
   <div class="d-flex align-items-center justify-content-between mb-4">
     <h1 class="mb-0">Users</h1>
     <button class="btn btn-primary" onclick="fetchUsers()">
-      <i class="bi bi-arrow-clockwise me-1"></i> Load Users
+      <i class="bi bi-arrow-clockwise me-1"></i> Refresh Users
     </button>
   </div>
   <p id="users_status" class="text-danger" style="display:none"></p>
@@ -69,7 +72,7 @@
   <div class="d-flex align-items-center justify-content-between mb-4">
     <h1 class="mb-0">Groups</h1>
     <button class="btn btn-primary" onclick="fetchGroups()">
-      <i class="bi bi-arrow-clockwise me-1"></i> Load Groups
+      <i class="bi bi-arrow-clockwise me-1"></i> Refresh Groups
     </button>
   </div>
   <p id="groups_status" class="text-danger" style="display:none"></p>
@@ -79,27 +82,49 @@
  </div>
 </div>
 
-    <div class="modal fade" id="userModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title" id="userModalLabel">User Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalLabel">User Details</h5>
+        <div class="ms-auto d-flex gap-2 me-2">
+          <button class="btn btn-sm btn-outline-secondary" id="userEditBtn" onclick="toggleUserEdit()">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+          <button class="btn btn-sm btn-success d-none" id="userSaveBtn" onclick="saveUser()">
+            <i class="bi bi-check-lg"></i> Save
+          </button>
+          <button class="btn btn-sm btn-outline-secondary d-none" id="userCancelBtn" onclick="cancelUserEdit()">
+            <i class="bi bi-x-lg"></i> Cancel
+          </button>
         </div>
-        <div class="modal-body" id="userModalBody">Loading...</div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-        </div>
+      </div>
+      <div class="modal-body" id="userModalBody">Loading...</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
     </div>
-    </div>
+  </div>
+</div>
 
-    <div class="modal fade" id="groupModal" tabindex="-1">
+<!-- Group Modal -->
+<div class="modal fade" id="groupModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="groupModalLabel">Group Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="ms-auto d-flex gap-2 me-2">
+          <button class="btn btn-sm btn-outline-secondary" id="groupEditBtn" onclick="toggleGroupEdit()">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+          <button class="btn btn-sm btn-success d-none" id="groupSaveBtn" onclick="saveGroup()">
+            <i class="bi bi-check-lg"></i> Save
+          </button>
+          <button class="btn btn-sm btn-outline-secondary d-none" id="groupCancelBtn" onclick="cancelGroupEdit()">
+            <i class="bi bi-x-lg"></i> Cancel
+          </button>
+        </div>
       </div>
       <div class="modal-body" id="groupModalBody">Loading...</div>
       <div class="modal-footer">

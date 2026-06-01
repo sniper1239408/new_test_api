@@ -1,5 +1,4 @@
 const urlbase = "http://localhost:8000";
-
 document.getElementById("login_form").addEventListener("submit", async function(event) {
         event.preventDefault();
         const data = new FormData(event.target);

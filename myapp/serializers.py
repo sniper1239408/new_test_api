@@ -42,12 +42,20 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', {})
+        permissions_data = validated_data.pop('permissions', None)
+
         instance.name = validated_data.get('name', instance.name)
         instance.save()
 
+        # update profile
         for field, value in profile_data.items():
             setattr(instance.profile, field, value)
         instance.profile.save()
+
+        # update permissions if provided
+        if permissions_data is not None:
+            permissions = Permission.objects.filter(codename__in=permissions_data)
+            instance.permissions.set(permissions)  # replace all permissions
 
         return instance
 

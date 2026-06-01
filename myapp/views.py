@@ -104,3 +104,31 @@ class UserListView(APIView):
         users = User.objects.prefetch_related('groups__profile', 'groups__permissions').all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
+
+class UserDetailView(APIView):
+    permission_classes = [IsAuthenticated, CanAccessAdminPanel]
+
+    def patch(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # update basic fields
+        user.username = request.data.get("username", user.username)
+        user.email = request.data.get("email", user.email)
+        user.is_active = request.data.get("is_active", user.is_active)
+
+        # update password only if provided
+        password = request.data.get("password")
+        if password:
+            user.set_password(password)  # hashes it properly
+
+        # update groups only if provided
+        group_ids = request.data.get("groups")
+        if group_ids is not None:
+            user.groups.set(group_ids)  # replace all groups with new ones
+
+        user.save()
+
+        return Response(UserSerializer(user).data)
