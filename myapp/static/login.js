@@ -50,6 +50,7 @@ async function adminOrViewer(){
     };
   } else {
     console.log(data2);
-    alert(`Error ${response.status} while checking if user is admin.`);
+    console.log(`Error ${response.status} while checking if user is admin.`);
+    window.location = "/viewer";
   };
 };
