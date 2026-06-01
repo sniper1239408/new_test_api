@@ -397,7 +397,7 @@ async function saveGroup() {
         "Content-Type": "application/json",
         "Authorization": `Token ${localStorage.getItem("token")}`
       },
-      body: JSON.stringify({ name, profile: {description}, permissions })
+      body: JSON.stringify({ name, profile: {description}, permission_codenames: permissions })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 

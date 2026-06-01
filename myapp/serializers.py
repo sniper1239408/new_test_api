@@ -22,10 +22,15 @@ class GroupProfileSerializer(serializers.ModelSerializer):
 class GroupSerializer(serializers.ModelSerializer):
     profile = GroupProfileSerializer()  # nest the profile inside group
     permissions = serializers.SerializerMethodField()
+    permission_codenames = serializers.ListField(
+        child=serializers.CharField(),
+        write_only=True,   # only used for input, not returned
+        required=False
+    )
     
     class Meta:
         model = Group
-        fields = ['id', 'name', 'profile', 'permissions']
+        fields = ['id', 'name', 'profile', 'permissions', 'permission_codenames']
         
     def get_permissions(self, obj):
         return list(obj.permissions.values_list('codename', flat=True))
@@ -42,7 +47,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', {})
-        permissions_data = validated_data.pop('permissions', None)
+        permissions_data = validated_data.pop('permission_codenames', None)
 
         instance.name = validated_data.get('name', instance.name)
         instance.save()
