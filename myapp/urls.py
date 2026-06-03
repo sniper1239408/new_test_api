@@ -3,8 +3,10 @@ from . import views
 from django.urls import path
 
 router = DefaultRouter()
-router.register(r'books', views.BookViewSet, basename='book')
-router.register(r'groups', views.GroupViewSet)
+router.register(r"books", views.BookViewSet, basename="book")
+router.register(r"groups", views.GroupViewSet)
+router.register(r"categories", views.CategoryViewSet, basename="category")
+router.register(r"category-assignments", views.CategoryManagerAssignmentViewSet, basename="category-assignment")
 
 urlpatterns = [
     path('login/', views.LoginView.as_view()),

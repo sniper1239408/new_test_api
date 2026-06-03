@@ -1,39 +1,68 @@
 from django.shortcuts import render
 from rest_framework import viewsets
-from .models import Book
-from .serializers import BookSerializer, GroupSerializer, UserSerializer
-from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import Permission, Group, User
-from .permissions import GroupPermission, CanAccessAdminPanel, IsBookOwner
 
-# Create your views here.
+from .models import Book, Category, CategoryManagerAssignment
+from .serializers import (
+    BookSerializer, GroupSerializer, UserSerializer,
+    CategorySerializer, CategoryManagerAssignmentSerializer,
+)
+from .permissions import (
+    BookPermission, CanAccessAdminPanel,
+    CanManageCategories, CanManageCategoryAssignments,
+    get_user_role,
+)
+
 
 class BookViewSet(viewsets.ModelViewSet):
     serializer_class = BookSerializer
-    permission_classes = [IsAuthenticated, IsBookOwner]
+    permission_classes = [IsAuthenticated, BookPermission]
 
     def get_queryset(self):
-        user = self.request.user
-
-        # check if user has admin permission
-        is_admin = (
-            Permission.objects
-            .filter(group__user=user, codename="access_admin_panel")
-            .exists()
-        )
-
-        if is_admin:
-            return Book.objects.all()  # admins see all books
-        
-        return Book.objects.filter(owner=user)  # regular users see only their books
+        # All authenticated roles can see all books
+        return Book.objects.select_related("category", "owner").all()
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        role = get_user_role(self.request.user)
+        # If a Category Manager is changing the category field, verify they own the target category too
+        if role == "Category Manager" and "category" in self.request.data:
+            new_category_id = self.request.data.get("category")
+            if new_category_id is None:
+                raise PermissionDenied("Category Managers cannot remove a book's category.")
+            has_target = CategoryManagerAssignment.objects.filter(
+                user=self.request.user, category_id=new_category_id
+            ).exists()
+            if not has_target:
+                raise PermissionDenied("You can only move books into your own assigned categories.")
+        serializer.save()
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        # Anyone authenticated can read; only Owner/Manager can write
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), CanManageCategories()]
+
+
+class CategoryManagerAssignmentViewSet(viewsets.ModelViewSet):
+    queryset = CategoryManagerAssignment.objects.select_related("user", "category").all()
+    serializer_class = CategoryManagerAssignmentSerializer
+    permission_classes = [IsAuthenticated, CanManageCategoryAssignments]
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -41,27 +70,14 @@ class LoginView(APIView):
     def post(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
-
         user = authenticate(username=username, password=password)
 
         if user is None:
-            return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Get the user's groups
-        groups = user.groups.values_list("name", flat=True)
-        groups = user.groups.select_related('profile').all()
-        group_data = [
-            {
-                "name": g.name,
-                "description": g.profile.description
-            }
-            for g in groups
-        ]
+        groups = user.groups.select_related("profile").all()
+        group_data = [{"name": g.name, "description": g.profile.description} for g in groups]
 
-        # Get all permissions from those groups
         permissions = (
             Permission.objects
             .filter(group__user=user)
@@ -73,20 +89,23 @@ class LoginView(APIView):
         return Response({
             "token": token.key,
             "username": user.username,
+            "role": get_user_role(user),
             "groups": group_data,
-            "permissions": list(permissions)  # send permissions to frontend
+            "permissions": list(permissions),
         })
 
+
 class GroupViewSet(viewsets.ModelViewSet):
-    queryset = Group.objects.select_related('profile').prefetch_related('permissions').all()
+    queryset = Group.objects.select_related("profile").prefetch_related("permissions").all()
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save()
 
+
 class AdminView(APIView):
-    permission_classes = [IsAuthenticated]  # don't block here, handle it manually
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         has_access = (
@@ -94,16 +113,19 @@ class AdminView(APIView):
             .filter(group__user=request.user, codename="access_admin_panel")
             .exists()
         )
-
         return Response({"has_access": has_access})
 
+
 class UserListView(APIView):
-    permission_classes = [IsAuthenticated, CanAccessAdminPanel]  # admin only
+    permission_classes = [IsAuthenticated, CanAccessAdminPanel]
 
     def get(self, request):
-        users = User.objects.prefetch_related('groups__profile', 'groups__permissions').all()
+        users = User.objects.prefetch_related(
+            "groups__profile", "groups__permissions", "category_assignments__category"
+        ).all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
+
 
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated, CanAccessAdminPanel]
@@ -114,21 +136,17 @@ class UserDetailView(APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # update basic fields
         user.username = request.data.get("username", user.username)
         user.email = request.data.get("email", user.email)
         user.is_active = request.data.get("is_active", user.is_active)
 
-        # update password only if provided
         password = request.data.get("password")
         if password:
-            user.set_password(password)  # hashes it properly
+            user.set_password(password)
 
-        # update groups only if provided
         group_ids = request.data.get("groups")
         if group_ids is not None:
-            user.groups.set(group_ids)  # replace all groups with new ones
+            user.groups.set(group_ids)
 
         user.save()
-
         return Response(UserSerializer(user).data)
