@@ -13,6 +13,7 @@ if(localStorage.getItem("token") == null){
 } else {
     document.getElementById("user_text").innerHTML = localStorage.getItem("username");
     showAdminLink();
+    fetchItems();
 }
 
 
