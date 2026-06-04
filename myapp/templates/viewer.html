@@ -18,13 +18,13 @@
   <!-- Nav Links -->
   <ul class="nav nav-pills flex-column gap-1 flex-grow-1">
     <li class="nav-item">
-      <a href="#" class="nav-link active text-white-50" data-target="page-create">
-        <i class="bi bi-plus-lg"></i> Add Book
+      <a href="#" class="nav-link active text-white-50" data-target="page-view">
+        <i class="bi bi-eye"></i> View Books
       </a>
     </li>
     <li class="nav-item">
-      <a href="#" class="nav-link text-white-50" data-target="page-view">
-        <i class="bi bi-eye"></i> View Books
+      <a href="#" class="nav-link text-white-50" data-target="page-create">
+        <i class="bi bi-plus-lg"></i> Add Book
       </a>
     </li>
     <li class="nav-item hidden" id="adminLink">
@@ -51,30 +51,35 @@
     <div id="main-content">
         <div style="margin-top: 2.5rem;">
                        <!-- Create page -->
-                <div id="page-create">
+                <div id="page-create" style="display:none">
  
                     <h2 class="mb-3">Add a new book</h2>
  
                     <form id="creation">
                         <!-- Basic Data -->
                         <div class="mb-3">
-                            <label for="name" class="form-label">Book Name</label>
+                            <label for="title" class="form-label">Book Name</label>
                             <input type="text" class="form-control" id="title" name="title" required>
                         </div>
                         <div class="mb-3">
-                            <label for="username" class="form-label">Author</label>
+                            <label for="author" class="form-label">Author</label>
                             <input type="text" class="form-control" id="author" name="author" required>
                         </div>
                         <div class="mb-3">
-                            <label for="email" class="form-label">Price</label>
+                            <label for="price" class="form-label">Price</label>
                             <input type="number" class="form-control" id="price" name="price" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cat" class="form-label">Category Selection</label>
+                            <div id="create_select_cat">
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary mt-2">Add Book</button>
                     </form>
                 </div>
 
   <!--view items-->
-  <div id="page-view" style="display:none">
+  <div id="page-view">
       <h2 class="mb-3">View your books</h2>
                     <button class="btn btn-primary" onclick="fetchItems()">
                         <i class="bi bi-arrow-clockwise me-1"></i> Refresh Books

@@ -4,7 +4,7 @@ let current_id = 0;
 let g_data;
 let edit = false;
 let allItems = [];
-let isAdmin = false;
+let allCategories = [];
 
 //Startup code
 if(localStorage.getItem("token") == null){
@@ -14,6 +14,7 @@ if(localStorage.getItem("token") == null){
     document.getElementById("user_text").innerHTML = localStorage.getItem("username");
     showAdminLink();
     fetchItems();
+    fetchCategories();
 }
 
 
@@ -74,7 +75,6 @@ async function showAdminLink(){
   const data2 = await response.json();
   if(response.ok) {
     if(data2.has_access == true){
-      isAdmin = true;
       document.getElementById("adminLink").classList.remove("hidden");
     };
   } else {
@@ -83,14 +83,43 @@ async function showAdminLink(){
   };
 };
 
+//fetch all categories and store in array
+async function fetchCategories(){
+  const res = await fetch(`${urlbase}/api/categories/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${localStorage.getItem("token")}`
+      }
+    });
+    const data2 = await res.json();
+    if(res.ok){
+      allCategories = data2;
+      document.getElementById("create_select_cat").innerHTML = 
+    `<select class="form-select form-select-sm" id="create_cat_assignment">
+       ${allCategories.map(c => `
+         <option value="${c.id}">
+           ${c.name}
+         </option>`
+       ).join("")}`;
+    } else {
+      console.log(`Error ${res.status} while fetching categories`);
+      console.log(data2);
+    };
+};
+
 //create book function
 document.getElementById("creation").addEventListener("submit", async function(event) { //will trigger when button is hit
     event.preventDefault(); //prevents reloading of page
+    const categoryIds = [...document.querySelectorAll("#create_cat_assignment option:checked")]
+                        .map(o => parseInt(o.value, 10));
+                        
     const data = new FormData(event.target);
     const body = {
             title: data.get("title"),
             author: data.get("author"),
-            price: data.get("price")
+            price: data.get("price"),
+            category: categoryIds[0]   
     };
     const response = await fetch(`${urlbase}/api/books/`, { //send data to server
     method: "POST",
@@ -153,7 +182,6 @@ function renderItems(items) {
         list.innerHTML = '<p class="text-muted">No items match your search.</p>';
         return;
     }
-    console.log(items);
     list.innerHTML = items.map((item, i) => `
             <div class="card mb-3">
                 <div class="card-header fw-bold">#${item.id} — ${item.title}</div>
@@ -166,11 +194,10 @@ function renderItems(items) {
                             <span class="text-muted me-2">Price:</span>
                             $${item.price}
                         </li>
-                        ${isAdmin ? `
                         <li class="list-group-item">
-                            <span class="text-muted me-2">Added by:</span>
-                            ${item.owner}
-                        </li>` : ''}
+                            <span class="text-muted me-2">Category:</span>
+                            ${item.category_name}
+                        </li>
                   </ul>
                         <div class="card-footer">
                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#infoModal" onclick="getMoreInfo(${item.id})">
@@ -288,6 +315,10 @@ async function getMoreInfo(id) {
                         $${g_data.price}
                     </li>
                     <li class="list-group-item">
+                        <span class="text-muted me-2">Category:</span>
+                        ${g_data.category_name} <span class="text-muted">(#${g_data.category})</span>
+                    </li>
+                    <li class="list-group-item">
                         <span class="text-muted me-2">Book added by:</span>
                         ${g_data.owner}
                     </li>
@@ -318,6 +349,16 @@ function editItem() {
                     <li class="list-group-item">
                         <span class="text-muted me-2">Price:</span>
                         <input type="number" id="eprice" name="price" value="${g_data.price}" required>
+                    </li>
+                    <li class="list-group-item">
+                        <span class="text-muted me-2">Category:</span>
+                    <select id="edit_cat_assignment">
+                        ${allCategories.map(c => `
+                            <option value="${c.id}" ${g_data.category == c.id ? "selected" : ""}>
+                            ${c.name}
+                            </option>`
+                        ).join("")};
+                        </select>
                     </li>
                     <li class="list-group-item">
                         <span class="text-muted me-2">Book added by:</span>
@@ -351,6 +392,10 @@ function unEdit() {
                         $${g_data.price}
                     </li>
                     <li class="list-group-item">
+                        <span class="text-muted me-2">Category:</span>
+                        ${g_data.category_name} <span class="text-muted">(#${g_data.category})</span>
+                    </li>
+                    <li class="list-group-item">
                         <span class="text-muted me-2">Book added by:</span>
                         ${g_data.owner}
                     </li>
@@ -359,31 +404,33 @@ function unEdit() {
 };
 
 async function editItemSubmit(event){
-                event.preventDefault();
-                const data = new FormData(event.target);
-                const body = { //api structure
-                    title: data.get("title"),
-                    author: data.get("author"),
-                    price: data.get("price")
-                };
-                const response = await fetch(`${urlbase}/api/books/${current_id}/`, {
-                method: "PUT",
-                headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Token ${localStorage.getItem("token")}`
-                },
-                body: JSON.stringify(body)
-            });
-            const data2 = await response.json();
-            console.log(data2);
-            if (response.ok) {
-                alert("Success! Item edited!");
-                document.getElementById('modal_button_close').click();
-                document.getElementById('filterValue').value  = '';
-                fetchItems();
-            } else {
-                alert(`Error ${response.status}: ${data2.detail}`);
-            };
+        event.preventDefault();
+        const categoryIds = [...document.querySelectorAll("#edit_cat_assignment option:checked")]
+                .map(o => parseInt(o.value, 10));
+        const data = new FormData(event.target);
+        const body = { //api structure
+            title: data.get("title"),
+            author: data.get("author"),
+            price: data.get("price"),
+            category: categoryIds[0]
+        };
+        const response = await fetch(`${urlbase}/api/books/${current_id}/`, {
+        method: "PUT",
+        headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(body)
+    });
+    const data2 = await response.json();
+    if (response.ok) {
+        alert("Success! Item edited!");
+        document.getElementById('modal_button_close').click();
+        document.getElementById('filterValue').value  = '';
+        fetchItems();
+    } else {
+        alert(`Error ${response.status}: ${data2.detail}`);
+    };
 };
 
 //===========END ITEM EDIT FUNCTIONS==============
