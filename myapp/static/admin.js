@@ -2,6 +2,7 @@ const urlbase = "http://localhost:8000";
 let allGroups = [];
 let currentUser = null;
 let currentGroup = null;
+let allCategories = [];
 
 if(localStorage.getItem("token") == null) {
     alert("You are not logged in");
@@ -11,6 +12,7 @@ if(localStorage.getItem("token") == null) {
     document.getElementById("user_text").innerHTML = localStorage.getItem("username");
     fetchUsers();
     fetchGroups();
+    fetchCategories();
 };
 
 async function checkIfAdmin(){
@@ -27,7 +29,7 @@ async function checkIfAdmin(){
         window.location = "/viewer";
     };
   } else {
-    console.log(data2)
+    console.log(data2);
     alert(`Error ${response.status} while checking if user is admin.`);
     window.location = "/viewer";
   };
@@ -155,9 +157,8 @@ function renderUserModal(u, editing) {
   const badge  = u.is_active
     ? `<span class="badge bg-success">Active</span>`
     : `<span class="badge bg-secondary">Inactive</span>`;
-
   const currentGroupIds = u.groups.map(g => g.id);
-
+  const currentCategoryIds = u.category_assignments.map(a => a.category_id);
 const groupsHtml = editing
   ? `<select class="form-select" id="edit_groups" multiple size="${Math.min(Math.max(allGroups.length, 3), 8)}">
       ${allGroups.map(g => `
@@ -205,6 +206,23 @@ const groupsHtml = editing
         </tr>
         <tr><th>Date Joined</th><td>${joined}</td></tr>
         <tr><th>Last Login</th><td>${login}</td></tr>
+        <tr>
+        <th>Category Assignments</th>
+        <td>
+        ${editing
+  ? `<select class="form-select form-select-sm" id="edit_cat_assignment" multiple
+        size="${Math.min(Math.max(allCategories.length, 3), 8)}">
+       ${allCategories.map(c => `
+         <option value="${c.id}" ${currentCategoryIds.includes(c.id) ? "selected" : ""}>
+           ${c.name}
+         </option>`
+       ).join("")}
+     </select>
+     <div class="form-text">Hold Ctrl / Cmd to select multiple.</div>`
+  : `${u.category_assignments.map(a => a.category_name).join(", ") || "None"}`
+        }
+        </td>
+        </tr>
       </tbody>
     </table>
     <h6 class="mb-2">Groups & Permissions</h6>
@@ -227,12 +245,15 @@ function cancelUserEdit() {
 
 async function saveUser() {
   const username  = document.getElementById("edit_username").value.trim();
-  const email = document.getElementById("edit_email").value.trim();
-  const groupIds = [...document.querySelectorAll("#edit_groups option:checked")]
-                   .map(o => parseInt(o.value, 10));
+  const email     = document.getElementById("edit_email").value.trim();
+  const groupIds  = [...document.querySelectorAll("#edit_groups option:checked")]
+                     .map(o => parseInt(o.value, 10));
   const is_active = document.getElementById("edit_is_active").value === "true";
+  const selectedCategoryIds = [...document.querySelectorAll("#edit_cat_assignment option:checked")]
+                               .map(o => parseInt(o.value, 10));
 
   try {
+    // 1. Save core user fields + groups
     const res = await fetch(`${urlbase}/api/users/${currentUser.id}/`, {
       method: "PATCH",
       headers: {
@@ -243,11 +264,45 @@ async function saveUser() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
+    // 2. Sync category assignments
+    const existingAssignments = currentUser.category_assignments; // [{ id, category_id, category_name }]
+    const existingCategoryIds = existingAssignments.map(a => a.category_id);
+
+    const toAdd    = selectedCategoryIds.filter(id => !existingCategoryIds.includes(id));
+    const toRemove = existingAssignments.filter(a => !selectedCategoryIds.includes(a.category_id));
+
+    await Promise.all([
+      ...toAdd.map(categoryId =>
+        fetch(`${urlbase}/api/category-assignments/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Token ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({ user: currentUser.id, category: categoryId })
+        })
+      ),
+      ...toRemove.map(a =>
+        fetch(`${urlbase}/api/category-assignments/${a.id}/`, {
+          method: "DELETE",
+          headers: { "Authorization": `Token ${localStorage.getItem("token")}` }
+        })
+      )
+    ]);
+
+    // 3. Update local state
     const updatedGroups = allGroups.filter(g => groupIds.includes(g.id));
-    currentUser = { ...currentUser, username, email, is_active, groups: updatedGroups };
+    const updatedAssignments = selectedCategoryIds.map(id => {
+      const cat = allCategories.find(c => c.id === id);
+      const existing = existingAssignments.find(a => a.category_id === id);
+      return { id: existing?.id ?? null, category_id: id, category_name: cat?.name ?? "" };
+    });
+
+    currentUser = { ...currentUser, username, email, is_active, groups: updatedGroups, category_assignments: updatedAssignments };
     document.getElementById("userModalLabel").textContent = `User — ${username}`;
     cancelUserEdit();
-    fetchUsers(); // refresh list in background
+    fetchUsers();
+
   } catch (err) {
     alert(`Failed to save: ${err.message}`);
   }
@@ -424,4 +479,22 @@ function editGroup(){
   document.getElementById("g-desc-text").innerHTML = `
   <input id="g-desc-input"></input>
   `;
+};
+
+//fetch categories function
+async function fetchCategories(){
+  const res = await fetch(`${urlbase}/api/categories/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${localStorage.getItem("token")}`
+      }
+    });
+    const data2 = await res.json();
+    if(res.ok){
+      allCategories = data2;
+    } else {
+      console.log(`Error ${res.status} while fetching categories`);
+      console.log(data2);
+    };
 };
