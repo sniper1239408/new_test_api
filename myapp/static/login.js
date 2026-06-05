@@ -18,8 +18,6 @@ document.getElementById("login_form").addEventListener("submit", async function(
   if (response.ok) {
     localStorage.setItem("token", data2.token);
     localStorage.setItem("username", data2.username);
-    localStorage.setItem("permissions", data2.permissions);
-    localStorage.setItem("groups", data2.groups[0].name);
     window.location = "/viewer/"
   } else {
     alert(`Error ${response.status}: ${data2.error}`);
@@ -30,6 +28,4 @@ if(localStorage.getItem("token") != null) {
   window.location = "/viewer/"
 } else {
   localStorage.removeItem("username");
-  localStorage.removeItem("permissions");
-  localStorage.removeItem("groups");
 };

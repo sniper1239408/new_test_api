@@ -5,6 +5,8 @@ let g_data;
 let edit = false;
 let allItems = [];
 let allCategories = [];
+let userDetails = [];
+let userPermissions = [];
 
 //Startup code
 if(localStorage.getItem("token") == null){
@@ -15,6 +17,7 @@ if(localStorage.getItem("token") == null){
     showAdminLink();
     fetchItems();
     fetchCategories();
+    fetchUserDetails();
 }
 
 
@@ -64,6 +67,19 @@ function logOut(){
     window.location = "/";
 };
 
+//activate features based on user permissions
+function activateFeatures(){
+    if(userPermissions.includes("add_book")){
+        document.getElementById("createLink").classList.remove("hidden");
+    };
+    if(userPermissions.includes("change_book")){
+        document.getElementById("editBtn").classList.remove("hidden");
+    };
+    if(userPermissions.includes("delete_book")){
+        document.getElementById("deleteBtn").classList.remove("hidden");
+    }
+};
+
 //determines if admin option is shown
 async function showAdminLink(){
     const response = await fetch(`${urlbase}/api/canAccessAdmin/`, { //send data to server
@@ -81,6 +97,27 @@ async function showAdminLink(){
     console.log('Error checking admin status.');
     console.log(data2);
   };
+};
+
+//fetch all user details and store in array
+async function fetchUserDetails(){
+    const res = await fetch(`${urlbase}/api/users/me/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${localStorage.getItem("token")}`
+      }
+    });
+    const data2 = await res.json();
+    if(res.ok){
+        userDetails = data2;
+        userPermissions = data2.groups[0].permissions;
+        localStorage.setItem("username", userDetails.username);
+        activateFeatures();
+    } else {
+        console.log(`Error ${res.status} while fetching user details.`);
+        console.log(data2);
+    };
 };
 
 //fetch all categories and store in array
@@ -332,44 +369,51 @@ async function getMoreInfo(id) {
 //===========ITEM EDIT FUNCTIONS==============
 
 function editItem() {
-    if(edit != true) {
-    edit = true;
-    const modalBody = document.getElementById('infoModalBody');
-    modalBody.innerHTML = `
-    <form id="edit_item">
-            <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <span class="text-muted me-2">Book Title:</span>
-                        <input type="text" id="etitle" name="title" value="${g_data.title}" required>
-                    </li>
-                    <li class="list-group-item">
-                        <span class="text-muted me-2">Author:</span>
-                        <input type="text" id="eauthor" name="author" value="${g_data.author}" required>
-                    </li>
-                    <li class="list-group-item">
-                        <span class="text-muted me-2">Price:</span>
-                        <input type="number" id="eprice" name="price" value="${g_data.price}" required>
-                    </li>
-                    <li class="list-group-item">
-                        <span class="text-muted me-2">Category:</span>
-                    <select id="edit_cat_assignment">
-                        ${allCategories.map(c => `
-                            <option value="${c.id}" ${g_data.category == c.id ? "selected" : ""}>
-                            ${c.name}
-                            </option>`
-                        ).join("")};
-                        </select>
-                    </li>
-                    <li class="list-group-item">
-                        <span class="text-muted me-2">Book added by:</span>
-                        ${g_data.owner}
-                    </li>
-            </ul>
-            <button class="btn btn-danger mt-2" onclick="unEdit()">Cancel</button>
-            <button type="submit" class="btn btn-primary mt-2">Edit Book</button>
-          </form>
-        `;
-        document.getElementById("edit_item").addEventListener("submit", editItemSubmit);
+    if(!edit) {
+        if(userDetails.groups[0].name == "Author" && g_data.owner != userDetails.username){
+                alert("You can only edit your own books.");
+        } else if(userDetails.groups[0].name == "Category Manager" && g_data.category_name != userDetails.category_assignments[0].category_name) {
+            alert("You can only edit books in your assigned category.");
+        }
+        else {
+            edit = true;
+            const modalBody = document.getElementById('infoModalBody');
+            modalBody.innerHTML = `
+            <form id="edit_item">
+                    <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <span class="text-muted me-2">Book Title:</span>
+                                <input type="text" id="etitle" name="title" value="${g_data.title}" required>
+                            </li>
+                            <li class="list-group-item">
+                                <span class="text-muted me-2">Author:</span>
+                                <input type="text" id="eauthor" name="author" value="${g_data.author}" required>
+                            </li>
+                            <li class="list-group-item">
+                                <span class="text-muted me-2">Price:</span>
+                                <input type="number" id="eprice" name="price" value="${g_data.price}" required>
+                            </li>
+                            <li class="list-group-item">
+                                <span class="text-muted me-2">Category:</span>
+                            <select id="edit_cat_assignment">
+                                ${allCategories.map(c => `
+                                    <option value="${c.id}" ${g_data.category == c.id ? "selected" : ""}>
+                                    ${c.name}
+                                    </option>`
+                                ).join("")};
+                                </select>
+                            </li>
+                            <li class="list-group-item">
+                                <span class="text-muted me-2">Book added by:</span>
+                                ${g_data.owner}
+                            </li>
+                    </ul>
+                    <button class="btn btn-danger mt-2" onclick="unEdit()">Cancel</button>
+                    <button type="submit" class="btn btn-primary mt-2">Edit Book</button>
+                    </form>
+                `;
+                document.getElementById("edit_item").addEventListener("submit", editItemSubmit);
+                };
     } else {
         unEdit();
     };
@@ -439,7 +483,10 @@ async function editItemSubmit(event){
 
 async function deleteItem() {
     if(current_id != 0){
-    const confirmation = confirm(`Are you sure you would like to delete item ${current_id} ?`);
+        if(userDetails.groups[0].name == "Category Manager" && g_data.category_name != userDetails.category_assignments[0].category_name){
+          alert("You can only delete books in your assigned category.")  
+        } else {
+            const confirmation = confirm(`Are you sure you would like to delete item ${current_id} ?`);
     if(confirmation){
         const response = await fetch(`${urlbase}/api/books/${current_id}/`, {
     method: "DELETE",
@@ -454,6 +501,8 @@ async function deleteItem() {
         alert(`Error ${response.status}`);
     };
     };
+    };
+    
     } else {
         console.log("NO modal opened (current_id = 0)");
     };
