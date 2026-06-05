@@ -8,7 +8,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import Permission, Group, User
-
 from .models import Book, Category, CategoryManagerAssignment
 from .serializers import (
     BookSerializer, GroupSerializer, UserSerializer,
@@ -18,6 +17,7 @@ from .permissions import (
     BookPermission, CanAccessAdminPanel,
     CanManageCategories, CanManageCategoryAssignments,
     get_user_role,
+    IsLibraryOwner,
 )
 
 
@@ -186,6 +186,27 @@ class UserDetailView(APIView):
 
         user.save()
         return Response(UserSerializer(user).data)
+
+    def delete(self, request, pk):
+        # Only Library Owners may delete users
+        perm = IsLibraryOwner()
+        if not perm.has_permission(request, request.parser_context["view"]):
+            return Response({"error": perm.message}, status=status.HTTP_403_FORBIDDEN)
+
+        # Prevent self-deletion
+        if request.user.pk == pk:
+            return Response(
+                {"error": "You cannot delete your own account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]

@@ -3,6 +3,7 @@ let allGroups = [];
 let currentUser = null;
 let currentGroup = null;
 let allCategories = [];
+let userDetails = [];
 
 if(localStorage.getItem("token") == null) {
     alert("You are not logged in");
@@ -13,6 +14,7 @@ if(localStorage.getItem("token") == null) {
     fetchUsers();
     fetchGroups();
     fetchCategories();
+    fetchUserDetails();
 };
 
 async function checkIfAdmin(){
@@ -231,6 +233,7 @@ const groupsHtml = editing
 
 function toggleUserEdit() {
   document.getElementById("userEditBtn").classList.add("d-none");
+  document.getElementById("userDeleteBtn").classList.add("d-none");
   document.getElementById("userSaveBtn").classList.remove("d-none");
   document.getElementById("userCancelBtn").classList.remove("d-none");
   renderUserModal(currentUser, true);
@@ -238,6 +241,7 @@ function toggleUserEdit() {
 
 function cancelUserEdit() {
   document.getElementById("userEditBtn").classList.remove("d-none");
+  document.getElementById("userDeleteBtn").classList.remove("d-none");
   document.getElementById("userSaveBtn").classList.add("d-none");
   document.getElementById("userCancelBtn").classList.add("d-none");
   renderUserModal(currentUser, false);
@@ -497,4 +501,44 @@ async function fetchCategories(){
       console.log(`Error ${res.status} while fetching categories`);
       console.log(data2);
     };
+};
+
+async function fetchUserDetails(){
+    const res = await fetch(`${urlbase}/api/users/me/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${localStorage.getItem("token")}`
+      }
+    });
+    const data2 = await res.json();
+    if(res.ok){
+        userDetails = data2;
+        localStorage.setItem("username", userDetails.username);
+    } else {
+        console.log(`Error ${res.status} while fetching user details.`);
+        console.log(data2);
+    };
+};
+
+async function deleteUser(){
+  if(userDetails.groups[0].name == "Library Owner"){
+    const confirmation = confirm("Are you sure you would like to delete this user? This action is irreversible.")
+    if(confirmation){
+        const response = await fetch(`${urlbase}/api/users/${currentUser.id}/`, {
+        method: "DELETE",
+        headers: {"Authorization": `Token ${localStorage.getItem("token")}`}
+      });
+        if (response.ok) {
+            alert("Success! User deleted.");
+            document.getElementById('userModalClose').click();
+            fetchUsers();
+        } else {
+          const data2 = await response.json();
+          alert(`Error ${response.status}: ${data2.error}`);
+    };
+    };
+  } else {
+    alert("Only the library owner can delete users.")
+  };
 };

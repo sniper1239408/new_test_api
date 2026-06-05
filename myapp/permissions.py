@@ -124,3 +124,10 @@ class CanManageCategoryAssignments(BasePermission):
 
     def has_permission(self, request, view):
         return get_user_role(request.user) in ["Library Owner", "Library Manager"]
+
+class IsLibraryOwner(BasePermission):
+    """Only users in the 'Library Owner' group may proceed."""
+    message = "Only Library Owners can perform this action."
+
+    def has_permission(self, request, view):
+        return get_user_role(request.user) == "Library Owner"
