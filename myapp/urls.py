@@ -10,8 +10,9 @@ router.register(r"category-assignments", views.CategoryManagerAssignmentViewSet,
 
 urlpatterns = [
     path('login/', views.LoginView.as_view()),
+    path('register/', views.RegisterView.as_view()),
     path('canAccessAdmin/', views.AdminView.as_view()),
     path('users/me/', views.CurrentUserView.as_view()),
     path('users/', views.UserListView.as_view()),
-    path('users/<int:pk>/', views.UserDetailView.as_view()),  # /api/users/1/
+    path('users/<int:pk>/', views.UserDetailView.as_view()),
 ] + router.urls
