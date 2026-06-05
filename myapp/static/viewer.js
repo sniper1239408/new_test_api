@@ -486,7 +486,7 @@ async function deleteItem() {
         if(userDetails.groups[0].name == "Category Manager" && g_data.category_name != userDetails.category_assignments[0].category_name){
           alert("You can only delete books in your assigned category.")  
         } else {
-            const confirmation = confirm(`Are you sure you would like to delete item ${current_id} ?`);
+            const confirmation = confirm(`Are you sure you would like to delete this book? This action is irreversible.`);
     if(confirmation){
         const response = await fetch(`${urlbase}/api/books/${current_id}/`, {
     method: "DELETE",
